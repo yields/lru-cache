@@ -2,7 +2,7 @@
   "name": "lru-cache",
   "repo": "yields/lru-cache",
   "description": "LRU Cache",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "keywords": ["cache", "lru"],
   "license": "MIT",
   "main": "index.js",
