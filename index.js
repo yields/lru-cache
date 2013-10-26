@@ -1,5 +1,11 @@
 
 /**
+ * dependencies
+ */
+
+var ms = require('ms');
+
+/**
  * Export `Cache`
  */
 
@@ -21,37 +27,64 @@ var has = ({}).hasOwnProperty;
 function Cache(opts){
   if (!(this instanceof Cache)) return new Cache(opts);
   opts = opts || {};
+  opts.max = opts.max || Infinity;
+  opts.ttl = opts.ttl || 0;
   this.keys = [];
   this.vals = {};
-  this.max(opts.max || Infinity);
+  this.max(opts.max);
+  this.ttl(opts.ttl);
 }
 
 /**
- * Set `key`, `val`.
+ * Set `ttl`.
  *
- * @param {String|Object} key
- * @param {Mixed} val
+ * @param {Number|String} ttl
  * @return {Cache}
  * @api public
  */
 
-Cache.prototype.set = function(key, val){
+Cache.prototype.ttl = function(ttl){
+  this._ttl = 'string' == typeof ttl
+    ? ms(ttl)
+    : ttl;
+
+  return this;
+};
+
+/**
+ * Set `key`, `val` and optional `ttl`
+ *
+ * @param {String|Object} key
+ * @param {Mixed} val
+ * @param {String|Number} ttl
+ * @return {Cache}
+ * @api public
+ */
+
+Cache.prototype.set = function(key, val, ttl){
   if ('object' == typeof key) {
-    for (var k in key) this.set(k, key[k]);
+    for (var k in key) this.set(k, key[k], ttl);
     return this;
   }
 
+  // remove
   if (this.has(key)) {
     this.remove(key);
   }
 
+  // ttl
+  if ('string' == typeof ttl) ttl = ms(ttl);
+
+  // add
   this.keys.push(key);
   this.vals[key] = {
+    ttl: ttl || this._ttl,
+    created: +new Date,
     value: val
   };
 
+  // cap
   this.cap();
-
   return this;
 };
 
@@ -65,8 +98,19 @@ Cache.prototype.set = function(key, val){
 
 Cache.prototype.get = function(key){
   if (!this.has(key)) return;
+  var val = this.vals[key];
+
+  // ttl
+  if (val.ttl && new Date > val.ttl + val.created) {
+    this.remove(key);
+    return;
+  }
+
+  // promote
   this.promote(key);
-  return this.vals[key].value;
+
+  // value
+  return val.value;
 };
 
 /**
